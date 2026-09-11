@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Untitled_design__10_-removebg-preview" width="800">
+  <img src="logo.png" width="800">
 </p>
 <div align="center">
 
