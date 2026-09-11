@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="Untitled_design__10_-removebg-preview" width="800">
+</p>
 <div align="center">
 
 # 🎓 Skill Safar
