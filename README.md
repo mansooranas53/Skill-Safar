@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/32089742/README.md)
 <div align="center">
 
 # 🎓 Skill Safar
