@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Health and connectivity verification
+    match /system_meta/{metaId} {
+      allow read, write: if true;
+    }
+    
+    // Core platform collections
+    match /institutions/{institutionId} {
+      allow read, write: if true;
+    }
+    match /companies/{companyId} {
+      allow read, write: if true;
+    }
+    match /opportunities/{oppId} {
+      allow read, write: if true;
+    }
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+    match /studentProfiles/{profileId} {
+      allow read, write: if true;
+    }
+    match /applications/{applicationId} {
+      allow read, write: if true;
+    }
+    match /mentors/{mentorId} {
+      allow read, write: if true;
+    }
+    match /collaborations/{collabId} {
+      allow read, write: if true;
+    }
+    match /learningPrograms/{progId} {
+      allow read, write: if true;
+    }
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
+    match /auditLogs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Default fallback for any nested or platform collections
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+

@@ -1,0 +1,117 @@
+{
+  "entities": {
+    "institutions": {
+      "title": "Educational Institutions",
+      "description": "Accredited partner universities, colleges, and polytechnics",
+      "fields": {
+        "id": { "type": "string", "description": "Unique institutional identifier" },
+        "name": { "type": "string", "description": "Institutional full name" },
+        "code": { "type": "string", "description": "Short code or acronym" },
+        "status": { "type": "string", "description": "Active or suspended status" },
+        "naacGrade": { "type": "string", "description": "NAAC accreditation grade" },
+        "nirfRank": { "type": "number", "description": "National Institutional Ranking Framework rank" },
+        "location": { "type": "string", "description": "City and state of main campus" },
+        "totalStudents": { "type": "number", "description": "Enrolled student population" },
+        "placedPercentage": { "type": "number", "description": "Verified campus placement rate" },
+        "subscription": { "type": "object", "description": "Service plan tier, student seats, and renewal date" },
+        "loginCredentials": { "type": "object", "description": "Campus administrator login and SSO domain config" }
+      }
+    },
+    "companies": {
+      "title": "Corporate Industry Partners",
+      "description": "Enterprises and tech companies offering internships, projects, and mentorship",
+      "fields": {
+        "id": { "type": "string", "description": "Unique corporate identifier" },
+        "companyName": { "type": "string", "description": "Corporate partner legal name" },
+        "domain": { "type": "string", "description": "Industry vertical or domain" },
+        "partnershipTier": { "type": "string", "description": "PLATINUM, GOLD, PILOT, or STANDARD" },
+        "location": { "type": "string", "description": "Headquarters or regional hiring office" },
+        "isVerified": { "type": "boolean", "description": "Corporate MOU verification status" },
+        "credentials": { "type": "object", "description": "Primary recruiter login credentials and security policies" }
+      }
+    },
+    "opportunities": {
+      "title": "Collaboration Opportunities",
+      "description": "Internships, hackathons, research projects, and hiring challenges",
+      "fields": {
+        "id": { "type": "string", "description": "Opportunity identifier" },
+        "title": { "type": "string", "description": "Role or challenge title" },
+        "companyId": { "type": "string", "description": "Associated company ID" },
+        "companyName": { "type": "string", "description": "Associated company name" },
+        "type": { "type": "string", "description": "INTERNSHIP, PROJECT, or HACKATHON" },
+        "status": { "type": "string", "description": "DRAFT, PUBLISHED, CLOSED, or ARCHIVED" },
+        "stipend": { "type": "string", "description": "Monthly stipend or grant amount" },
+        "location": { "type": "string", "description": "Workplace arrangement (Remote, On-site, Hybrid)" }
+      }
+    },
+    "students": {
+      "title": "Managed Students",
+      "description": "Students enrolled across partner institutions",
+      "fields": {
+        "id": { "type": "string", "description": "Student unique identifier" },
+        "usn": { "type": "string", "description": "University Seat Number" },
+        "fullName": { "type": "string", "description": "Student full legal name" },
+        "email": { "type": "string", "description": "Institutional or personal email" },
+        "institutionId": { "type": "string", "description": "Enrolled institution ID" },
+        "branch": { "type": "string", "description": "Academic major or department" },
+        "semester": { "type": "number", "description": "Current active semester" },
+        "cgpa": { "type": "number", "description": "Cumulative Grade Point Average" },
+        "verifiedSkillScore": { "type": "number", "description": "Verified assessment benchmark score (0-100)" },
+        "internshipStatus": { "type": "string", "description": "Seeking, Interviewing, or Placed" },
+        "accountStatus": { "type": "string", "description": "ACTIVE or SUSPENDED" }
+      }
+    },
+    "mentors": {
+      "title": "Mentors & Faculty",
+      "description": "Campus faculty advisors and industry mentors",
+      "fields": {
+        "id": { "type": "string", "description": "Mentor identifier" },
+        "fullName": { "type": "string", "description": "Mentor name" },
+        "email": { "type": "string", "description": "Work email address" },
+        "type": { "type": "string", "description": "FACULTY or INDUSTRY" },
+        "departmentOrCompany": { "type": "string", "description": "Department or enterprise name" },
+        "assignedMenteesCount": { "type": "number", "description": "Currently assigned students" },
+        "maxMenteesCapacity": { "type": "number", "description": "Capacity ceiling" },
+        "accountStatus": { "type": "string", "description": "ACTIVE or SUSPENDED" }
+      }
+    },
+    "auditLogs": {
+      "title": "System Audit Trail",
+      "description": "Administrative actions and security event logs",
+      "fields": {
+        "id": { "type": "string", "description": "Log entry identifier" },
+        "timestamp": { "type": "string", "description": "ISO timestamp of event" },
+        "action": { "type": "string", "description": "Action performed" },
+        "actor": { "type": "string", "description": "Email or ID of operator" },
+        "target": { "type": "string", "description": "Affected entity" },
+        "details": { "type": "string", "description": "Descriptive summary" }
+      }
+    }
+  },
+  "rules": [
+    {
+      "collection": "institutions",
+      "rule": "allow read: if true; allow write: if request.auth != null;"
+    },
+    {
+      "collection": "companies",
+      "rule": "allow read: if true; allow write: if request.auth != null;"
+    },
+    {
+      "collection": "opportunities",
+      "rule": "allow read: if true; allow write: if request.auth != null;"
+    },
+    {
+      "collection": "students",
+      "rule": "allow read: if true; allow write: if request.auth != null;"
+    },
+    {
+      "collection": "mentors",
+      "rule": "allow read: if true; allow write: if request.auth != null;"
+    },
+    {
+      "collection": "auditLogs",
+      "rule": "allow read, write: if request.auth != null;"
+    }
+  ]
+}

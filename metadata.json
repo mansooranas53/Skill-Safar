@@ -1,0 +1,6 @@
+{
+  "name": "Skill Safar",
+  "description": "Academia–industry collaboration portal with master operations backend for provisioning partner institutes, assigning service tiers, deterministic skill assessments, and recruiter matching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
