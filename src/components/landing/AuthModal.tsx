@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserRole } from '../../types';
+import { portalRepository } from '../../repositories/mockRepository';
 import {
   X,
   Sparkles,
@@ -15,7 +16,7 @@ import {
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAuthenticate: (role: UserRole, userDetails?: { name: string; email: string }) => void;
+  onAuthenticate: (role: UserRole, userDetails?: { name: string; email: string; password?: string; organization?: string }) => void;
   initialMode?: 'signin' | 'signup';
   initialRole?: UserRole;
 }
@@ -36,11 +37,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  const activeStudent = portalRepository.getStudentProfile();
+  const currentStudentName = activeStudent?.fullName || 'Aarav Sharma';
+  const currentStudentEmail = activeStudent?.email || 'aarav.sharma@campus.edu';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAuthenticate(selectedRole, {
-      name: name || (selectedRole === 'STUDENT' ? 'Aanal Nathvani' : selectedRole === 'INDUSTRY' ? 'CloudScale Recruiter' : selectedRole === 'ACADEMICIAN' ? 'Prof. Herva Mehta' : 'Campus Administrator'),
-      email: email || (selectedRole === 'STUDENT' ? 'aanal.nathvani@campus.edu' : 'recruiter@cloudscale.io')
+      name: name.trim() || (selectedRole === 'STUDENT' ? currentStudentName : selectedRole === 'INDUSTRY' ? 'CloudScale Recruiter' : selectedRole === 'ACADEMICIAN' ? 'Prof. Herva Mehta' : 'Campus Administrator'),
+      email: email.trim() || (selectedRole === 'STUDENT' ? currentStudentEmail : selectedRole === 'INDUSTRY' ? 'recruiter@cloudscale.io' : selectedRole === 'ACADEMICIAN' ? 'herva.mehta@its-blr.edu.in' : 'admin@its-blr.edu.in'),
+      password: password || 'password123',
+      organization: organization.trim() || (selectedRole === 'STUDENT' ? (activeStudent?.institutionName || 'ITS Bangalore') : '')
     });
     onClose();
   };
@@ -52,14 +59,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     description: string;
     icon: React.ComponentType<{ className?: string }>;
     accentColor: string;
+    email: string;
   }> = [
     {
       role: 'STUDENT',
-      name: 'Aanal Nathvani',
-      organization: 'ITS Bangalore • B.Tech CS 2026',
+      name: currentStudentName,
+      organization: `${activeStudent?.institutionName || 'ITS Bangalore'} • B.Tech CS 2026`,
       description: '5 Verified skills, 3 project repos, 91% match with CloudScale',
       icon: GraduationCap,
-      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800'
+      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800',
+      email: currentStudentEmail
     },
     {
       role: 'INDUSTRY',
@@ -67,7 +76,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       organization: 'Cloud Infrastructure Recruiter',
       description: 'Review screened candidates, update stages, post internships',
       icon: Building2,
-      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800'
+      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800',
+      email: 'recruiter@cloudscale.io'
     },
     {
       role: 'ACADEMICIAN',
@@ -75,7 +85,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       organization: 'Professor & Head, CS Department',
       description: 'Industry R&D proposals, faculty immersion sabbaticals, FDPs',
       icon: BookOpen,
-      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800'
+      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800',
+      email: 'herva.mehta@its-blr.edu.in'
     },
     {
       role: 'INSTITUTION_ADMIN',
@@ -83,7 +94,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       organization: 'Dean of Academic Placement',
       description: 'NIRF/NAAC analytics, department readiness, curriculum gaps',
       icon: School,
-      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800'
+      accentColor: 'hover:border-slate-400 bg-slate-50/80 text-slate-800',
+      email: 'admin@its-blr.edu.in'
     }
   ];
 
@@ -131,7 +143,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     key={demo.role}
                     type="button"
                     onClick={() => {
-                      onAuthenticate(demo.role);
+                      onAuthenticate(demo.role, {
+                        name: demo.name,
+                        email: demo.email,
+                        organization: demo.organization
+                      });
                       onClose();
                     }}
                     className={`p-3 rounded-2xl border border-slate-200 text-left transition-all hover:shadow-xs group flex items-start gap-3 ${demo.accentColor}`}

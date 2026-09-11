@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { portalRepository } from '../../repositories/mockRepository';
 import {
   Sparkles,
   ChevronRight,
@@ -19,65 +20,76 @@ interface ActivityItem {
   time: string;
 }
 
-const ACTIVITIES: ActivityItem[] = [
-  {
-    id: '1',
-    icon: Award,
-    tag: 'Verification',
-    text: 'Aanal Nathvani completed Docker & Containers assessment (Score: 88%)',
-    time: '2m ago'
-  },
-  {
-    id: '2',
-    icon: Building2,
-    tag: 'Industry Match',
-    text: 'CloudScale Technologies shortlisted 3 candidates for Distributed Systems Intern',
-    time: '8m ago'
-  },
-  {
-    id: '3',
-    icon: GraduationCap,
-    tag: 'Academician',
-    text: 'Prof. Herva Mehta reviewed Capstone Milestone for B.Tech CS candidates',
-    time: '14m ago'
-  },
-  {
-    id: '4',
-    icon: Activity,
-    tag: 'Accreditation',
-    text: 'ITS Bangalore updated placement readiness metrics (NIRF 2026 dossier ready)',
-    time: '22m ago'
-  },
-  {
-    id: '5',
-    icon: Sparkles,
-    tag: 'AI Matching',
-    text: 'Explainable AI engine recalculated fit compatibility for 18 active job requisitions',
-    time: '35m ago'
-  }
-];
+const getActivities = (): ActivityItem[] => {
+  const studentName = portalRepository.getStudentProfile()?.fullName || 'Active Candidate';
+  return [
+    {
+      id: '1',
+      icon: Award,
+      tag: 'Verification',
+      text: `${studentName} completed Docker & Containers assessment (Score: 88%)`,
+      time: '2m ago'
+    },
+    {
+      id: '2',
+      icon: Building2,
+      tag: 'Industry Match',
+      text: 'CloudScale Technologies shortlisted 3 candidates for Distributed Systems Intern',
+      time: '8m ago'
+    },
+    {
+      id: '3',
+      icon: GraduationCap,
+      tag: 'Academician',
+      text: 'Prof. Herva Mehta reviewed Capstone Milestone for B.Tech CS candidates',
+      time: '14m ago'
+    },
+    {
+      id: '4',
+      icon: Activity,
+      tag: 'Accreditation',
+      text: 'ITS Bangalore updated placement readiness metrics (NIRF 2026 dossier ready)',
+      time: '22m ago'
+    },
+    {
+      id: '5',
+      icon: Sparkles,
+      tag: 'AI Matching',
+      text: 'Explainable AI engine recalculated fit compatibility for 18 active job requisitions',
+      time: '35m ago'
+    }
+  ];
+};
 
 export const LiveActivityTicker: React.FC = () => {
+  const [activities, setActivities] = useState<ActivityItem[]>(getActivities);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (isPaused) return;
+    const unsub = portalRepository.subscribe(() => {
+      setActivities(getActivities());
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (isPaused || activities.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % ACTIVITIES.length);
+      setCurrentIndex(prev => (prev + 1) % activities.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [isPaused]);
+  }, [isPaused, activities.length]);
 
-  const current = ACTIVITIES[currentIndex];
+  const current = activities[currentIndex] || activities[0];
   const Icon = current.icon;
 
   const handleNext = () => {
-    setCurrentIndex(prev => (prev + 1) % ACTIVITIES.length);
+    setCurrentIndex(prev => (prev + 1) % activities.length);
   };
 
   const handlePrev = () => {
-    setCurrentIndex(prev => (prev - 1 + ACTIVITIES.length) % ACTIVITIES.length);
+    setCurrentIndex(prev => (prev - 1 + activities.length) % activities.length);
   };
 
   return (
@@ -126,7 +138,7 @@ export const LiveActivityTicker: React.FC = () => {
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
         <span className="text-[10px] font-mono font-medium text-slate-400 px-1">
-          {currentIndex + 1}/{ACTIVITIES.length}
+          {currentIndex + 1}/{activities.length}
         </span>
         <button
           onClick={handleNext}

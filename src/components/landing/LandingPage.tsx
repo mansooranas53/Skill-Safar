@@ -22,14 +22,12 @@ import {
   QrCode,
   Search,
   Check,
-  Volume2,
-  VolumeX,
   Copy
 } from 'lucide-react';
 
 interface LandingPageProps {
   onSelectRole: (role: UserRole) => void;
-  onAuthenticate: (role: UserRole, userDetails?: { name: string; email: string }) => void;
+  onAuthenticate: (role: UserRole, userDetails?: { name: string; email: string; password?: string; organization?: string }) => void;
   onNavigateToMasterAdmin?: () => void;
 }
 
@@ -43,7 +41,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [authInitialRole, setAuthInitialRole] = useState<UserRole>('STUDENT');
   const [simulatedGapBridged, setSimulatedGapBridged] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(SoundFX.isEnabled());
 
   // Interactive Showcase State
   const [showcaseTab, setShowcaseTab] = useState<'match' | 'terminal' | 'credential'>('match');
@@ -202,18 +199,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <kbd className="hidden sm:inline-block px-1.5 py-0.2 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-500">
                   ⌘K
                 </kbd>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const enabled = SoundFX.toggle();
-                  setSoundEnabled(enabled);
-                }}
-                className="p-2 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
-                title={soundEnabled ? 'UI Sound Effects On (Click to Mute)' : 'UI Sound Effects Muted (Click to Enable)'}
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
               </button>
 
               <button

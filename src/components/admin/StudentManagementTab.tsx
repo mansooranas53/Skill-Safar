@@ -479,7 +479,7 @@ export const StudentManagementTab: React.FC<StudentManagementTabProps> = ({
         onClose={() => setSelectedStudentForProfile(null)}
         studentId={selectedStudentForProfile || undefined}
         viewerRole="INSTITUTION_ADMIN"
-        onUpdatePlacementStatus={(newStatus) => {
+        onPlacementStatusChanged={() => {
           onRefresh();
         }}
       />

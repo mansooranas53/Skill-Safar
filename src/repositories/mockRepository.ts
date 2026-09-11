@@ -27,7 +27,9 @@ import {
   CompanyAccountCredential,
   InstitutionLoginCredential,
   ManagedStudent,
-  ManagedMentor
+  ManagedMentor,
+  UserRole,
+  PortalUserAccount
 } from '../types';
 
 import {
@@ -79,8 +81,58 @@ const STORAGE_KEYS = {
   ACTIVE_INSTITUTION: 'aicp_active_inst_v1',
   INDUSTRIES: 'aicp_industries_v2',
   MANAGED_STUDENTS: 'aicp_managed_students_v1',
-  MANAGED_MENTORS: 'aicp_managed_mentors_v1'
+  MANAGED_MENTORS: 'aicp_managed_mentors_v1',
+  USERS: 'aicp_users_v2',
+  CURRENT_USER: 'aicp_current_user_v2'
 };
+
+const DEFAULT_USERS_SEED: PortalUserAccount[] = [
+  {
+    id: 'user-std-01',
+    email: 'aanal.nathvani@campus.edu',
+    name: 'Aanal Nathvani',
+    role: 'STUDENT',
+    password: 'password123',
+    organization: 'ITS Bangalore',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'user-std-02',
+    email: 'aarav.sharma@campus.edu',
+    name: 'Aarav Sharma',
+    role: 'STUDENT',
+    password: 'password123',
+    organization: 'ITS Bangalore',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'user-ind-01',
+    email: 'recruiter@cloudscale.io',
+    name: 'CloudScale Recruiter',
+    role: 'INDUSTRY',
+    password: 'password123',
+    organization: 'CloudScale Technologies',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'user-acd-01',
+    email: 'herva.mehta@its-blr.edu.in',
+    name: 'Prof. Herva Mehta',
+    role: 'ACADEMICIAN',
+    password: 'password123',
+    organization: 'Computer Science Department',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'user-adm-01',
+    email: 'admin@its-blr.edu.in',
+    name: 'ITS Bangalore Administration',
+    role: 'INSTITUTION_ADMIN',
+    password: 'password123',
+    organization: 'Institute of Technology & Science',
+    updatedAt: new Date().toISOString()
+  }
+];
 
 class PortalRepository {
   private student: StudentProfile;
@@ -97,11 +149,21 @@ class PortalRepository {
   private servicePlans: ServicePlanCatalogItem[];
   private managedStudents: ManagedStudent[];
   private managedMentors: ManagedMentor[];
+  private users: PortalUserAccount[];
+  private currentUser: PortalUserAccount | null;
   private activeInstitutionId: string;
   private listeners: Set<() => void> = new Set();
 
   constructor() {
     this.student = this.load(STORAGE_KEYS.STUDENT, SEED_STUDENT);
+    this.users = this.load<PortalUserAccount[]>(STORAGE_KEYS.USERS, DEFAULT_USERS_SEED);
+    this.currentUser = this.load<PortalUserAccount | null>(STORAGE_KEYS.CURRENT_USER, null);
+
+    // If current logged-in user is a student with a custom name, sync with active profile
+    if (this.currentUser && this.currentUser.role === 'STUDENT' && this.currentUser.name) {
+      this.student.fullName = this.currentUser.name;
+      this.student.email = this.currentUser.email;
+    }
     
     const rawIndustries = this.load<IndustryProfile[]>(STORAGE_KEYS.INDUSTRIES, SEED_INDUSTRIES);
     this.industries = rawIndustries.map(ind => ({
@@ -143,6 +205,35 @@ class PortalRepository {
 
     // Check if cloud has opportunities or institutions; if not, push initial seed data
     try {
+      // 1. Synchronize user accounts across devices
+      const existingUsers = await fetchCollectionFromFirestore<PortalUserAccount>('users');
+      if (existingUsers.length > 0) {
+        this.users = existingUsers;
+        this.persist(STORAGE_KEYS.USERS, existingUsers);
+        if (this.currentUser) {
+          const match = existingUsers.find(u => u.email.toLowerCase() === this.currentUser?.email.toLowerCase());
+          if (match) this.currentUser = match;
+        }
+      }
+
+      // 2. Synchronize student profile across devices
+      const existingStudentProfiles = await fetchCollectionFromFirestore<StudentProfile>('studentProfiles');
+      if (existingStudentProfiles.length > 0) {
+        const userEmail = this.currentUser?.email?.toLowerCase();
+        const activeMatch = existingStudentProfiles.find(s => (userEmail && s.email.toLowerCase() === userEmail) || s.id === this.student.id) || existingStudentProfiles[0];
+        if (activeMatch && activeMatch.fullName) {
+          this.student = activeMatch;
+          this.persist(STORAGE_KEYS.STUDENT, this.student);
+        }
+      }
+
+      // 3. Synchronize notifications across devices
+      const existingNotifs = await fetchCollectionFromFirestore<PlatformNotification>('notifications');
+      if (existingNotifs.length > 0) {
+        this.notifications = existingNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        this.persist(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
+      }
+
       const existingOpps = await fetchCollectionFromFirestore<Opportunity>('opportunities');
       if (existingOpps.length === 0) {
         // Cloud is empty or freshly initialized: push full seed state
@@ -187,6 +278,57 @@ class PortalRepository {
   }
 
   private attachRealtimeListeners(): void {
+    // 1. Realtime listener for student profiles (syncs name, email, credentials across all devices live)
+    setupRealtimeSync('studentProfiles', (items: StudentProfile[]) => {
+      if (items.length > 0) {
+        const userEmail = this.currentUser?.email?.toLowerCase();
+        const match = items.find(s => (userEmail && s.email.toLowerCase() === userEmail) || s.id === this.student.id) || items[0];
+        if (match && match.fullName) {
+          this.student = { ...this.student, ...match };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEYS.STUDENT, JSON.stringify(this.student));
+          }
+          this.notify();
+        }
+      }
+    });
+
+    // 2. Realtime listener for users accounts (email, password, names across devices)
+    setupRealtimeSync('users', (items: PortalUserAccount[]) => {
+      if (items.length > 0) {
+        this.users = items;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(items));
+        }
+        if (this.currentUser) {
+          const match = items.find(u => u.email.toLowerCase() === this.currentUser?.email.toLowerCase());
+          if (match) {
+            this.currentUser = match;
+            if (match.role === 'STUDENT' && match.name && match.name !== this.student.fullName) {
+              this.student.fullName = match.name;
+              this.student.email = match.email;
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(STORAGE_KEYS.STUDENT, JSON.stringify(this.student));
+              }
+            }
+          }
+        }
+        this.notify();
+      }
+    });
+
+    // 3. Realtime listener for notifications (live navbar notification count and bell updates)
+    setupRealtimeSync('notifications', (items: PlatformNotification[]) => {
+      if (items.length > 0) {
+        this.notifications = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(this.notifications));
+        }
+        this.notify();
+      }
+    });
+
+    // 4. Opportunities, Applications, and Students
     setupRealtimeSync('opportunities', (items: Opportunity[]) => {
       if (items.length > 0) {
         this.opportunities = items;
@@ -287,6 +429,14 @@ class PortalRepository {
         data.forEach((log: any) => {
           if (log?.id) syncDocToFirestore('auditLogs', log.id, log);
         });
+      } else if (key === STORAGE_KEYS.NOTIFICATIONS) {
+        data.forEach((notif: any) => {
+          if (notif?.id) syncDocToFirestore('notifications', notif.id, notif);
+        });
+      } else if (key === STORAGE_KEYS.USERS) {
+        data.forEach((user: any) => {
+          if (user?.id) syncDocToFirestore('users', user.id, user);
+        });
       }
     }
   }
@@ -312,6 +462,8 @@ class PortalRepository {
       collaborations: this.collaborations,
       learningPrograms: this.learningPrograms,
       auditLogs: this.auditLogs,
+      notifications: this.notifications,
+      users: this.users,
       student: this.student
     });
     this.notify();
@@ -456,6 +608,28 @@ class PortalRepository {
   public updateStudentProfile(patch: Partial<StudentProfile>): StudentProfile {
     this.student = { ...this.student, ...patch };
     this.persist(STORAGE_KEYS.STUDENT, this.student);
+
+    // Keep currentUser synchronized if role is STUDENT
+    if (this.currentUser && this.currentUser.role === 'STUDENT') {
+      if (patch.fullName) this.currentUser.name = patch.fullName;
+      if (patch.email) this.currentUser.email = patch.email;
+      this.persist(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+      const userInList = this.users.find(u => u.id === this.currentUser?.id);
+      if (userInList) {
+        if (patch.fullName) userInList.name = patch.fullName;
+        if (patch.email) userInList.email = patch.email;
+        this.persist(STORAGE_KEYS.USERS, this.users);
+      }
+    }
+
+    // Keep managedStudents synchronized
+    const managed = this.managedStudents.find(s => s.id === this.student.id || (patch.email && s.email.toLowerCase() === patch.email.toLowerCase()));
+    if (managed) {
+      if (patch.fullName) managed.fullName = patch.fullName;
+      if (patch.email) managed.email = patch.email;
+      this.persist(STORAGE_KEYS.MANAGED_STUDENTS, this.managedStudents);
+    }
+
     this.notify();
     return { ...this.student };
   }
@@ -1439,6 +1613,111 @@ class PortalRepository {
 
     this.notify();
     return true;
+  }
+
+  // User Accounts & Authentication Synchronization
+  public getCurrentUser(): PortalUserAccount | null {
+    return this.currentUser ? { ...this.currentUser } : null;
+  }
+
+  public getUsers(): PortalUserAccount[] {
+    return [...this.users];
+  }
+
+  public async authenticateUser(details: {
+    name?: string;
+    email: string;
+    password?: string;
+    role: UserRole;
+    organization?: string;
+    isSignUp?: boolean;
+  }): Promise<PortalUserAccount> {
+    const cleanEmail = details.email.trim().toLowerCase();
+    const cleanName = details.name?.trim() || '';
+
+    let user = this.users.find(u => u.email.toLowerCase() === cleanEmail);
+
+    if (!user) {
+      const fallbackName = cleanName || (details.role === 'STUDENT' ? 'Aarav Sharma' : details.role === 'INDUSTRY' ? 'CloudScale Recruiter' : details.role === 'ACADEMICIAN' ? 'Prof. Herva Mehta' : 'Campus Administrator');
+      user = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        email: cleanEmail,
+        name: fallbackName,
+        role: details.role,
+        password: details.password || 'password123',
+        organization: details.organization || (details.role === 'STUDENT' ? 'ITS Bangalore' : ''),
+        updatedAt: new Date().toISOString()
+      };
+      this.users.push(user);
+    } else {
+      if (cleanName) user.name = cleanName;
+      if (details.password) user.password = details.password;
+      if (details.organization) user.organization = details.organization;
+      user.role = details.role;
+      user.updatedAt = new Date().toISOString();
+    }
+
+    this.currentUser = user;
+    this.persist(STORAGE_KEYS.USERS, this.users);
+    this.persist(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    syncDocToFirestore('users', user.id, user as unknown as Record<string, unknown>);
+
+    if (details.role === 'STUDENT') {
+      const studentName = user.name;
+      this.student = {
+        ...this.student,
+        fullName: studentName,
+        email: user.email,
+        ...(user.organization ? { institutionName: user.organization } : {})
+      };
+      this.persist(STORAGE_KEYS.STUDENT, this.student);
+      syncDocToFirestore('studentProfiles', this.student.id, this.student as unknown as Record<string, unknown>);
+
+      const existingManaged = this.managedStudents.find(
+        s => s.email.toLowerCase() === user.email.toLowerCase() || s.id === this.student.id
+      );
+      if (existingManaged) {
+        existingManaged.fullName = studentName;
+        existingManaged.email = user.email;
+        if (user.organization) existingManaged.institutionName = user.organization;
+      } else {
+        this.managedStudents.unshift({
+          id: this.student.id,
+          fullName: studentName,
+          email: user.email,
+          usn: '1IT22CS089',
+          institutionId: this.student.institutionId || 'inst-01',
+          institutionName: this.student.institutionName,
+          branch: this.student.branch,
+          semester: 6,
+          cgpa: this.student.cgpa,
+          verifiedSkillScore: 88,
+          internshipStatus: 'Seeking',
+          accountStatus: 'ACTIVE',
+          twoFactorEnabled: false
+        });
+      }
+      this.persist(STORAGE_KEYS.MANAGED_STUDENTS, this.managedStudents);
+
+      this.addNotification({
+        userId: user.id,
+        title: `Welcome, ${studentName}!`,
+        message: `Your Skill Safar portfolio is synchronized across all active devices.`,
+        type: 'SYSTEM',
+        actionUrl: 'dashboard'
+      });
+    }
+
+    this.notify();
+    return { ...user };
+  }
+
+  public signOutUser(): void {
+    this.currentUser = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
+    this.notify();
   }
 }
 

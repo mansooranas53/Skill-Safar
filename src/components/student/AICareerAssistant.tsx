@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Markdown from 'react-markdown';
 import { StudentProfile } from '../../types';
 import { MCPService } from '../../services/portalServices';
 import {
@@ -11,7 +12,9 @@ import {
   CheckCircle2,
   HelpCircle,
   Briefcase,
-  BookOpen
+  BookOpen,
+  Cpu,
+  RefreshCw
 } from 'lucide-react';
 
 interface AICareerAssistantProps {
@@ -24,6 +27,8 @@ interface Message {
   text: string;
   mcpToolUsed?: string;
   mcpToolPayload?: Record<string, unknown>;
+  model?: string;
+  isFallback?: boolean;
   timestamp: string;
 }
 
@@ -32,67 +37,113 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
     {
       id: 'msg-1',
       sender: 'assistant',
-      text: `Hello ${student.fullName}! I am your AI Career Intelligence Agent. I operate securely through the platform's Model Context Protocol (MCP) layer to query your verified skill profile, analyze active recruiter demand, and advise on high-compatibility internships. What would you like to explore today?`,
+      text: `Hello **${student.fullName}**! I am your **Gemini-powered AI Career Intelligence Advisor**.\n\nI combine Google DeepMind's **Gemini 3.8 Flash** with the platform's Model Context Protocol (MCP) to analyze your verified skill profile, examine real-time recruiter requirements, and deliver grounded, actionable career guidance.\n\nAsk me about:\n• Technical interview preparation tailored to your shortlist\n• Precise skill gap roadmaps & bridging strategies\n• System design questions and code explanations\n• How to optimize your placement readiness for target recruiters`,
+      model: 'gemini-3.8-flash',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showMcpAudit, setShowMcpAudit] = useState(true);
+  const [showMcpAudit, setShowMcpAudit] = useState(false);
 
   const quickPrompts = [
     {
       label: 'Analyze my Skill Gaps',
-      query: 'Analyze my verified skill profile against active opportunities and identify my critical competency gaps.',
+      query: 'Analyze my verified skill profile against active opportunities and identify my critical competency gaps with a concrete roadmap to bridge them.',
       tool: 'analyze_skill_gaps'
     },
     {
       label: 'Find Top Matching Openings',
-      query: 'What are my top matching internships right now based on deterministic compatibility?',
+      query: 'What are my top matching internships right now based on deterministic compatibility and how can I maximize my offer chances?',
       tool: 'find_matching_opportunities'
     },
     {
       label: 'Recommend Learning Programs',
-      query: 'Which courses or certifications should I take right now to maximize my recruitment match score?',
+      query: 'Which specific courses or certifications in the learning center should I prioritize right now to increase my recruiter match score?',
       tool: 'recommend_learning'
     },
     {
       label: 'Interview Prep for CloudScale',
-      query: 'I am shortlisted for Backend Engineering Intern at CloudScale Technologies. Generate role-specific technical interview questions.',
+      query: 'I am shortlisted for Backend Engineering Intern at CloudScale Technologies. Generate 3 realistic technical interview questions based on their stack and provide sample answers.',
       tool: 'get_student_skill_profile'
     }
   ];
 
-  const handleSend = (textToSend?: string, toolOverride?: string) => {
+  const handleSend = async (textToSend?: string, toolOverride?: string) => {
     const text = textToSend || inputText;
     if (!text.trim() || isProcessing) return;
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       sender: 'user',
-      text,
+      text: text.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInputText('');
     setIsProcessing(true);
 
-    setTimeout(() => {
-      // Determine appropriate MCP tool call
-      let toolToCall = toolOverride || 'get_student_skill_profile';
-      const lower = text.toLowerCase();
+    // Determine appropriate MCP tool call to ground context
+    let toolToCall = toolOverride || 'get_student_skill_profile';
+    const lower = text.toLowerCase();
 
-      if (lower.includes('gap') || lower.includes('benchmark')) {
-        toolToCall = 'analyze_skill_gaps';
-      } else if (lower.includes('match') || lower.includes('opportunity') || lower.includes('internship') || lower.includes('job')) {
-        toolToCall = 'find_matching_opportunities';
-      } else if (lower.includes('learn') || lower.includes('course') || lower.includes('study')) {
-        toolToCall = 'recommend_learning';
+    if (lower.includes('gap') || lower.includes('benchmark')) {
+      toolToCall = 'analyze_skill_gaps';
+    } else if (lower.includes('match') || lower.includes('opportunity') || lower.includes('internship') || lower.includes('job')) {
+      toolToCall = 'find_matching_opportunities';
+    } else if (lower.includes('learn') || lower.includes('course') || lower.includes('study')) {
+      toolToCall = 'recommend_learning';
+    }
+
+    const mcpResult = MCPService.callTool(toolToCall);
+
+    try {
+      // Prepare multi-turn history for Gemini
+      const conversationHistory = updatedMessages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        text: m.text
+      }));
+
+      const res = await fetch('/api/gemini/advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text.trim(),
+          history: conversationHistory.slice(-8),
+          studentContext: {
+            fullName: student.fullName,
+            branch: student.branch,
+            institutionName: student.institutionName,
+            cgpa: student.cgpa,
+            skills: student.skills,
+            mcpTool: toolToCall,
+            mcpData: mcpResult
+          }
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Gemini Advisor API responded with status ${res.status}`);
       }
 
-      // Safe MCP execution through service layer (Rule 48 & 49 compliance)
-      const mcpResult = MCPService.callTool(toolToCall);
+      const data = await res.json();
+
+      const assistantMsg: Message = {
+        id: `msg-${Date.now() + 1}`,
+        sender: 'assistant',
+        text: data.text || 'I analyzed your profile, but could not produce a response. Please rephrase your query.',
+        mcpToolUsed: toolToCall,
+        mcpToolPayload: mcpResult,
+        model: data.model || 'gemini-3.8-flash',
+        isFallback: data.isFallback,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (err) {
+      console.warn('Gemini API call failed, providing grounded fallback response:', err);
 
       let responseText = '';
       if (toolToCall === 'analyze_skill_gaps') {
@@ -122,29 +173,59 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
         text: responseText,
         mcpToolUsed: toolToCall,
         mcpToolPayload: mcpResult,
+        model: 'deterministic-mcp-engine',
+        isFallback: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setMessages(prev => [...prev, assistantMsg]);
+    } finally {
       setIsProcessing(false);
-    }, 700);
+    }
+  };
+
+  const handleClearHistory = () => {
+    setMessages([
+      {
+        id: `msg-${Date.now()}`,
+        sender: 'assistant',
+        text: `Chat history cleared. Hello **${student.fullName}**, what career, interview, or skill guidance can Gemini assist you with today?`,
+        model: 'gemini-3.8-flash',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header with MCP security badge */}
+      {/* Header with Gemini and MCP intelligence badges */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">
-            <Sparkles className="w-4 h-4 text-slate-800" />
-            AI Career Intelligence (MCP Protocol)
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900 text-white font-mono text-[10px]">
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              Gemini 3.8 Flash
+            </span>
+            <span className="text-slate-400">&bull;</span>
+            <span className="text-slate-600">Model Context Protocol Grounded</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Grounded Career Advisor & Skill Gap Explainer</h2>
+          <h2 className="text-xl font-bold text-slate-900">AI Career Intelligence Advisor</h2>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Autonomous agent communicating strictly through the Model Context Protocol (MCP). Grounded in your real verified skills, active industry requirements, and recruitment state machines.
+            Directly integrates Google DeepMind's Gemini model with verified platform records to answer questions on technical interview prep, placement benchmarks, and skills acceleration.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleClearHistory}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            title="Reset conversation"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+            <span>Reset Chat</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowMcpAudit(!showMcpAudit)}
@@ -155,7 +236,7 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>MCP Tool Trace {showMcpAudit ? 'ON' : 'OFF'}</span>
+            <span>MCP Trace {showMcpAudit ? 'ON' : 'OFF'}</span>
           </button>
         </div>
       </div>
@@ -167,21 +248,26 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
             key={idx}
             onClick={() => handleSend(qp.query, qp.tool)}
             disabled={isProcessing}
-            className="p-3 bg-white rounded-xl border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-left transition-all shadow-2xs group"
+            className="p-3 bg-white rounded-xl border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-left transition-all shadow-2xs group flex flex-col justify-between"
           >
-            <div className="text-xs font-bold text-slate-900 group-hover:text-black flex items-center justify-between">
-              <span>{qp.label}</span>
-              <Sparkles className="w-3.5 h-3.5 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div>
+              <div className="text-xs font-bold text-slate-900 group-hover:text-black flex items-center justify-between">
+                <span>{qp.label}</span>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 font-light">
+                {qp.query}
+              </p>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono mt-1">
-              MCP: {qp.tool}
+            <div className="text-[10px] text-slate-400 font-mono mt-2">
+              Tool: {qp.tool}
             </div>
           </button>
         ))}
       </div>
 
       {/* Chat Area */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col h-[520px]">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col h-[560px]">
         {/* Messages container */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map(msg => {
@@ -192,20 +278,35 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
                 className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}
               >
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
-                  isUser ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                  isUser ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'
                 }`}>
-                  {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4 text-slate-800" />}
+                  {isUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4 text-emerald-600" />}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 max-w-2xl">
                   <div className={`p-4 rounded-2xl text-xs leading-relaxed ${
                     isUser
                       ? 'bg-slate-900 text-white rounded-tr-xs'
                       : 'bg-slate-50 border border-slate-200/80 text-slate-800 rounded-tl-xs'
                   }`}>
-                    <div className="whitespace-pre-line">{msg.text}</div>
-                    <div className={`text-[9px] mt-2 ${isUser ? 'text-slate-300' : 'text-slate-400'}`}>
-                      {msg.timestamp}
+                    {isUser ? (
+                      <div className="whitespace-pre-line">{msg.text}</div>
+                    ) : (
+                      <div className="markdown-body space-y-2.5 prose-xs text-slate-800">
+                        <Markdown>{msg.text}</Markdown>
+                      </div>
+                    )}
+
+                    <div className={`text-[9px] mt-2.5 flex items-center gap-2 ${isUser ? 'text-slate-300' : 'text-slate-400'}`}>
+                      <span>{msg.timestamp}</span>
+                      {!isUser && msg.model && (
+                        <>
+                          <span>&bull;</span>
+                          <span className="font-mono uppercase text-[8px] bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded text-slate-600">
+                            {msg.model}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -225,10 +326,13 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
               </div>
             );
           })}
+
           {isProcessing && (
-            <div className="flex items-center gap-2 text-xs text-slate-400 italic">
-              <Sparkles className="w-4 h-4 animate-spin text-slate-600" />
-              <span>Querying Model Context Protocol tools and platform services...</span>
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 max-w-sm">
+              <Sparkles className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+              <div className="text-xs text-slate-600">
+                <span className="font-semibold text-slate-900">Gemini 3.8 Flash</span> is reasoning through your profile and active recruiter requirements...
+              </div>
             </div>
           )}
         </div>
@@ -244,7 +348,7 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
           >
             <input
               type="text"
-              placeholder="Ask anything (e.g. How to bridge Docker gap? What questions will CloudScale ask?)..."
+              placeholder="Ask Gemini anything (e.g. How to prepare for CloudScale interview? How to bridge Docker gap?)..."
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               disabled={isProcessing}
@@ -255,13 +359,17 @@ export const AICareerAssistant: React.FC<AICareerAssistantProps> = ({ student })
               disabled={!inputText.trim() || isProcessing}
               className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
             >
-              <span>Send</span>
+              <span>Ask Gemini</span>
               <Send className="w-3.5 h-3.5" />
             </button>
           </form>
+
           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2 px-1">
-            <span>MCP Security: Zero direct database access • Fully grounded in platform contracts</span>
-            <span>Deterministic Scoring Active</span>
+            <span className="flex items-center gap-1">
+              <Cpu className="w-3 h-3 text-slate-500" />
+              Powered by Google Gemini 3.8 Flash &bull; Server-Side Proxy
+            </span>
+            <span>Private & Verified Academic Context</span>
           </div>
         </div>
       </div>

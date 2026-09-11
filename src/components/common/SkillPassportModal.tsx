@@ -151,27 +151,34 @@ export const SkillPassportModal: React.FC<SkillPassportModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {student.skills.map(skill => (
-                  <div
-                    key={skill.name}
-                    className="p-3 rounded-2xl bg-white border border-slate-200/90 flex items-center justify-between shadow-2xs hover:border-slate-300 transition-colors"
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <span>{skill.name}</span>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                {student.skills.map((skill: any, idx: number) => {
+                  const sName = skill.skillName || skill.name || `Skill ${idx + 1}`;
+                  const sCategory = (skill.category || 'General').replace('cat-', '').toUpperCase();
+                  const sLevel = skill.proficiency || skill.level || 'Verified';
+                  const sScore = skill.score ?? 85;
+                  const uniqueKey = skill.skillId || skill.id || `${sName}-${idx}`;
+                  return (
+                    <div
+                      key={uniqueKey}
+                      className="p-3 rounded-2xl bg-white border border-slate-200/90 flex items-center justify-between shadow-2xs hover:border-slate-300 transition-colors"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                          <span>{sName}</span>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-light mt-0.5">
+                          {sCategory} &bull; {sLevel}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-400 font-light mt-0.5">
-                        {skill.category.replace('cat-', '').toUpperCase()} &bull; {skill.level}
-                      </div>
-                    </div>
 
-                    <div className="text-right">
-                      <div className="text-sm font-display font-bold text-slate-900">{skill.score}%</div>
-                      <div className="text-[10px] text-emerald-600 font-medium font-mono">PASSED</div>
+                      <div className="text-right">
+                        <div className="text-sm font-display font-bold text-slate-900">{sScore}%</div>
+                        <div className="text-[10px] text-emerald-600 font-medium font-mono">PASSED</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

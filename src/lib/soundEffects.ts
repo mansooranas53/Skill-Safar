@@ -2,15 +2,17 @@
 // Zero external assets required, crisp, instant, and completely customizable.
 
 let audioCtx: AudioContext | null = null;
-let soundEnabled = true;
+let soundEnabled = false;
 
 try {
   const stored = localStorage.getItem('ss_sound_enabled');
   if (stored !== null) {
     soundEnabled = stored === 'true';
+  } else {
+    soundEnabled = false;
   }
 } catch {
-  // safe fallback
+  soundEnabled = false;
 }
 
 function getAudioContext(): AudioContext | null {

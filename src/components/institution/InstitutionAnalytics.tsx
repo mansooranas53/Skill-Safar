@@ -169,17 +169,6 @@ export const InstitutionAnalytics: React.FC<InstitutionAnalyticsProps> = ({
               {sub?.totalStudentSeats ? sub.totalStudentSeats.toLocaleString('en-IN') : institution.totalStudents.toLocaleString('en-IN')}
             </div>
           </div>
-
-          {onOpenMasterAdmin && (
-            <button
-              onClick={onOpenMasterAdmin}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-              title="Open HQ Master Admin to adjust service tier or add campuses"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Master Admin</span>
-            </button>
-          )}
         </div>
       </div>
 

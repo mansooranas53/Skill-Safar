@@ -87,6 +87,7 @@ export interface StudentProfile {
   userId: string;
   fullName: string;
   email: string;
+  usn?: string;
   avatarUrl?: string;
   headline: string;
   bio: string;
@@ -432,3 +433,14 @@ export interface FacultyCollaboration {
   status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
   deadline: string;
 }
+
+export interface PortalUserAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  password?: string;
+  organization?: string;
+  updatedAt: string;
+}
+

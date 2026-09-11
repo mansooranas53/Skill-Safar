@@ -185,8 +185,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     // Roles
     {
       id: 'role-student',
-      title: 'Switch to Student (Aanal Nathvani)',
-      subtitle: 'B.Tech CS &bull; ITS Bangalore',
+      title: `Switch to Student (${portalRepository.getStudentProfile()?.fullName || 'Student'})`,
+      subtitle: 'B.Tech CS • ITS Bangalore',
       category: 'Roles',
       icon: GraduationCap,
       action: () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserRole, PlatformNotification } from '../../types';
+import { UserRole, PlatformNotification, StudentProfile, PortalUserAccount } from '../../types';
 import { portalRepository } from '../../repositories/mockRepository';
 import { SoundFX } from '../../lib/soundEffects';
 import {
@@ -16,8 +16,6 @@ import {
   LogOut,
   ShieldCheck,
   Search,
-  Volume2,
-  VolumeX,
   QrCode,
   Database
 } from 'lucide-react';
@@ -46,16 +44,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenDatabaseSync
 }) => {
   const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
+  const [student, setStudent] = useState<StudentProfile>(() => portalRepository.getStudentProfile());
+  const [currentUser, setCurrentUser] = useState<PortalUserAccount | null>(() => portalRepository.getCurrentUser());
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(SoundFX.isEnabled());
   const notifRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setNotifications(portalRepository.getNotifications());
+    setStudent(portalRepository.getStudentProfile());
+    setCurrentUser(portalRepository.getCurrentUser());
     const unsub = portalRepository.subscribe(() => {
       setNotifications(portalRepository.getNotifications());
+      setStudent(portalRepository.getStudentProfile());
+      setCurrentUser(portalRepository.getCurrentUser());
     });
     return unsub;
   }, []);
@@ -75,29 +78,45 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const studentPersona = student?.fullName
+    ? `${student.fullName} (${student.branch ? (student.branch.includes('CS') || student.branch.includes('Computer') ? 'B.Tech CS' : student.branch) : 'B.Tech CS'}, ${student.graduationYear || 2026})`
+    : 'Student Portal';
+
+  const industryPersona = currentUser?.role === 'INDUSTRY' && currentUser.name
+    ? `${currentUser.organization || 'CloudScale Tech'} (${currentUser.name})`
+    : 'CloudScale Tech (Recruiter)';
+
+  const academicianPersona = currentUser?.role === 'ACADEMICIAN' && currentUser.name
+    ? `${currentUser.name} (${currentUser.organization || 'Prof. CS'})`
+    : 'Prof. Herva Mehta (Prof. CS)';
+
+  const institutionPersona = currentUser?.role === 'INSTITUTION_ADMIN' && currentUser.name
+    ? `${currentUser.organization || 'ITS Bangalore'} (${currentUser.name})`
+    : 'ITS Bangalore (Dean Analytics)';
+
   const roleConfigs: Record<UserRole, { label: string; icon: React.ComponentType<{ className?: string }>; persona: string; color: string }> = {
     STUDENT: {
       label: 'Student Portal',
       icon: GraduationCap,
-      persona: 'Aanal Nathvani (B.Tech CS, 2026)',
+      persona: studentPersona,
       color: 'bg-slate-100 text-slate-900 border-slate-200'
     },
     INDUSTRY: {
       label: 'Industry Portal',
       icon: Building2,
-      persona: 'CloudScale Tech (Recruiter)',
+      persona: industryPersona,
       color: 'bg-slate-100 text-slate-900 border-slate-200'
     },
     ACADEMICIAN: {
       label: 'Academician Portal',
       icon: BookOpen,
-      persona: 'Prof. Herva Mehta (Prof. CS)',
+      persona: academicianPersona,
       color: 'bg-slate-100 text-slate-900 border-slate-200'
     },
     INSTITUTION_ADMIN: {
       label: 'Institution Admin',
       icon: School,
-      persona: 'ITS Bangalore (Dean Analytics)',
+      persona: institutionPersona,
       color: 'bg-slate-100 text-slate-900 border-slate-200'
     },
     SUPER_ADMIN: {
@@ -238,8 +257,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Cloud Database Sync Center trigger */}
-            {onOpenDatabaseSync && (
+            {/* Cloud Database Sync Center trigger - internal master admin usage only */}
+            {onOpenDatabaseSync && currentRole === 'SUPER_ADMIN' && (
               <button
                 type="button"
                 onClick={() => {
@@ -247,30 +266,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenDatabaseSync();
                 }}
                 className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-colors"
-                title="Database & Cloud Sync Center (Google Cloud Firestore)"
+                title="Database & Cloud Sync Center (Internal Master Admin Usage)"
               >
                 <Database className="w-3.5 h-3.5 text-indigo-600" />
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="hidden md:inline font-mono text-[11px]">Cloud DB</span>
               </button>
             )}
-
-            {/* Tactile Audio Feedback Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const enabled = SoundFX.toggle();
-                setSoundEnabled(enabled);
-              }}
-              className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
-              title={soundEnabled ? 'Micro-sound effects enabled (Click to mute)' : 'Micro-sound effects muted (Click to enable)'}
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-slate-400" />
-              )}
-            </button>
 
             {/* Quick Digital Passport modal button (Student role only) */}
             {currentRole === 'STUDENT' && onOpenPassport && (
@@ -374,19 +376,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Reset Seed Data Button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('Reset portal demo data to fresh default seed?')) {
-                  portalRepository.resetToDefaults();
-                }
-              }}
-              className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
-              title="Reset sample data"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            {/* Reset Seed Data Button - only visible in SUPER_ADMIN mode */}
+            {currentRole === 'SUPER_ADMIN' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Reset portal demo data to fresh default seed?')) {
+                    portalRepository.resetToDefaults();
+                  }
+                }}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+                title="Reset sample data (Admin Only)"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

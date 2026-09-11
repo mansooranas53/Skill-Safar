@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StudentProfile, Opportunity, MatchExplanation } from '../../types';
 import { EmployabilityLoopProgress } from './EmployabilityLoopProgress';
+import { StudentSkillAnalyticsCharts } from './StudentSkillAnalyticsCharts';
 import { OpportunityService, MatchingService, StudentService, ApplicationService } from '../../services/portalServices';
 import { MatchScoreBadge } from '../common/MatchScoreBadge';
 import { ExplainableMatchModal } from '../common/ExplainableMatchModal';
@@ -163,6 +164,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <p className="text-[11px] text-slate-400 mt-3 font-light">Recruiter pipeline tracking</p>
         </div>
       </div>
+
+      {/* Interactive Skill Analytics & Assessment Performance Charts */}
+      <StudentSkillAnalyticsCharts
+        student={student}
+        onNavigateTab={onNavigateTab}
+      />
 
       {/* Main Two Columns: Top Matches + Gaps & Applications */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

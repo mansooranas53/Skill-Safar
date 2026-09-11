@@ -194,6 +194,8 @@ export async function pushAllToFirestore(payload: {
   collaborations?: unknown[];
   learningPrograms?: unknown[];
   auditLogs?: unknown[];
+  notifications?: unknown[];
+  users?: unknown[];
   student?: unknown;
 }): Promise<{ success: boolean; totalUploaded: number; error?: string }> {
   if (!isFirebaseConfigured) {
@@ -213,6 +215,8 @@ export async function pushAllToFirestore(payload: {
       { name: 'applications', items: (payload.applications as any[]) || [] },
       { name: 'collaborations', items: (payload.collaborations as any[]) || [] },
       { name: 'learningPrograms', items: (payload.learningPrograms as any[]) || [] },
+      { name: 'notifications', items: (payload.notifications as any[]) || [] },
+      { name: 'users', items: (payload.users as any[]) || [] },
       { name: 'auditLogs', items: (payload.auditLogs as any[]) || [] }
     ];
 

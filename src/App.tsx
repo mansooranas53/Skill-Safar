@@ -136,11 +136,29 @@ export default function App() {
   const handleSelectRoleFromLanding = (role: UserRole) => {
     setCurrentRole(role);
     setIsAuthenticated(true);
+    const existing = portalRepository.getCurrentUser();
+    if (!existing || existing.role !== role) {
+      const activeStudent = portalRepository.getStudentProfile();
+      portalRepository.authenticateUser({
+        name: role === 'STUDENT' ? (activeStudent?.fullName || 'Aarav Sharma') : role === 'INDUSTRY' ? 'CloudScale Recruiter' : role === 'ACADEMICIAN' ? 'Prof. Herva Mehta' : 'Campus Administrator',
+        email: role === 'STUDENT' ? (activeStudent?.email || 'aarav.sharma@campus.edu') : 'recruiter@cloudscale.io',
+        role
+      });
+    }
   };
 
-  const handleAuthenticate = (role: UserRole) => {
+  const handleAuthenticate = (role: UserRole, userDetails?: { name?: string; email?: string; password?: string; organization?: string }) => {
     setCurrentRole(role);
     setIsAuthenticated(true);
+    if (userDetails?.email || userDetails?.name) {
+      portalRepository.authenticateUser({
+        name: userDetails.name,
+        email: userDetails.email || (role === 'STUDENT' ? 'aarav.sharma@campus.edu' : 'user@campus.edu'),
+        password: userDetails.password,
+        role,
+        organization: userDetails.organization
+      });
+    }
   };
 
   // 1. DIRECT ROUTE: /masteradmin
@@ -260,6 +278,7 @@ export default function App() {
         }}
         onSignOut={() => {
           SoundFX.click();
+          portalRepository.signOutUser();
           setIsAuthenticated(false);
         }}
         onOpenSpotlight={() => setIsSpotlightOpen(true)}
